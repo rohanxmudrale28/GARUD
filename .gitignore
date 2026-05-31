@@ -1,0 +1,5 @@
+garud_env/
+__pycache__/
+.DS_Store
+.venv/
+garud_v2-3/.venv/
