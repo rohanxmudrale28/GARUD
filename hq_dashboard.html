@@ -1,0 +1,428 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>GARUD — National HQ</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Rajdhani:wght@400;500;600&family=Orbitron:wght@500;700&display=swap');
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg0:#050b14;--bg1:#080f1c;--bg2:#0c1628;
+  --border:#1a3050;--border2:#1e3a60;
+  --text:#8ab4d4;--text2:#4a7090;--text3:#2a4560;
+  --accent:#29b6f6;--white:#cfe8f8;
+  --yellow:#ffd600;--amber:#ff9100;--red:#ff3d3d;
+  --mono:'Share Tech Mono',monospace;
+  --ui:'Rajdhani',sans-serif;
+  --title:'Orbitron',sans-serif;
+}
+html,body{height:100%;overflow:hidden;background:var(--bg0);color:var(--text);font-family:var(--ui)}
+#app{display:grid;grid-template-rows:52px 44px 1fr 30px;height:100vh}
+
+/* Header */
+#hdr{display:flex;align-items:center;justify-content:space-between;padding:0 20px;background:var(--bg1);border-bottom:1px solid var(--border);z-index:1000}
+.logo{font-family:var(--title);font-size:22px;color:var(--accent);letter-spacing:4px}
+.sub{font-size:11px;color:var(--text2);letter-spacing:2px;margin-top:2px}
+#clock{font-family:var(--mono);font-size:18px;color:var(--accent)}
+#date-str{font-size:10px;color:var(--text2);text-align:right;letter-spacing:1px}
+.ap{display:flex;align-items:center;gap:6px;font-size:11px;color:var(--text2)}
+.ad{width:8px;height:8px;border-radius:50%;background:#2a4060;transition:background .4s}
+.ad.on{background:#00e676;animation:blink 1.4s infinite}
+
+/* Stats */
+#stats{display:flex;border-bottom:1px solid var(--border);background:var(--bg1);z-index:1000}
+.stat{flex:1;display:flex;align-items:center;gap:10px;padding:0 16px;border-right:1px solid var(--border)}
+.stat:last-child{border-right:none;flex:2}
+.sn{font-family:var(--mono);font-size:22px}
+.sl{font-size:10px;color:var(--text2);letter-spacing:1px;line-height:1.4}
+#ticker{font-family:var(--mono);font-size:11px;color:var(--text2);padding:0 10px;width:100%;overflow:hidden;white-space:nowrap}
+
+/* Content */
+#content{display:flex;overflow:hidden;position:relative}
+
+/* Map */
+#map{flex:1;z-index:1}
+
+/* Leaflet dark override */
+.leaflet-container{background:#050b14 !important}
+.leaflet-tile{filter:brightness(0.35) saturate(0.4) hue-rotate(180deg) invert(0.05)}
+.leaflet-control-zoom a{background:var(--bg2)!important;color:var(--accent)!important;border-color:var(--border)!important}
+.leaflet-control-attribution{background:rgba(5,11,20,0.8)!important;color:var(--text3)!important;font-size:9px!important}
+.leaflet-control-attribution a{color:var(--text2)!important}
+
+/* Camera marker */
+.cam-marker{
+  width:14px;height:14px;border-radius:50%;
+  border:2px solid #050b14;cursor:pointer;
+  position:relative;
+}
+.cam-marker.white {background:#cfe8f8}
+.cam-marker.yellow{background:#ffd600;box-shadow:0 0 8px #ffd600}
+.cam-marker.amber {background:#ff9100;box-shadow:0 0 10px #ff9100}
+.cam-marker.red   {background:#ff3d3d;box-shadow:0 0 14px #ff3d3d}
+.cam-marker.offline{background:#2a4060}
+
+.cam-pulse{
+  width:14px;height:14px;border-radius:50%;
+  position:absolute;top:0;left:0;
+  animation:cam-pulse 2s ease-out infinite;
+}
+.cam-marker.yellow .cam-pulse{background:#ffd600}
+.cam-marker.amber  .cam-pulse{background:#ff9100}
+.cam-marker.red    .cam-pulse{background:#ff3d3d}
+
+@keyframes cam-pulse{
+  0%  {transform:scale(1);opacity:0.8}
+  100%{transform:scale(3.5);opacity:0}
+}
+
+/* Side panel */
+#side{width:300px;display:flex;flex-direction:column;border-left:1px solid var(--border);background:var(--bg1);flex-shrink:0;z-index:1000}
+#fhdr{padding:10px 14px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:8px}
+.lb{font-size:10px;font-family:var(--mono);background:#0a0510;color:var(--text2);border:1px solid var(--border);padding:2px 7px;border-radius:3px}
+#fcn{font-size:13px;font-weight:600;color:var(--white);flex:1}
+#fbox{height:180px;position:relative;overflow:hidden;background:#03080f;border-bottom:1px solid var(--border);flex-shrink:0}
+#fimg{width:100%;height:100%;object-fit:cover;display:none}
+#fph{width:100%;height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px}
+#fov{position:absolute;bottom:0;left:0;right:0;background:linear-gradient(transparent,rgba(3,8,15,.9));padding:6px 10px;display:none;justify-content:space-between;font-family:var(--mono);font-size:10px;color:var(--text2)}
+.rec{color:var(--red);animation:blink 1s infinite}
+#cdet{padding:10px 14px;border-bottom:1px solid var(--border);font-size:12px}
+.ir{display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px solid var(--bg2)}
+.ir:last-child{border-bottom:none}
+.ik{color:var(--text2)}.iv{color:var(--white);font-family:var(--mono);font-size:11px;text-align:right;max-width:160px}
+.sb{display:inline-block;padding:1px 8px;border-radius:2px;font-size:10px;font-weight:600;letter-spacing:1px}
+.sw{background:#0f2035;color:#8ab4d4;border:1px solid #1e3a60}
+.sy{background:#2a1f00;color:var(--yellow);border:1px solid #4a3800}
+.sa{background:#2a1400;color:var(--amber);border:1px solid #4a2800}
+.sr{background:#2a0505;color:var(--red);border:1px solid #5a0a0a}
+#elog{flex:1;overflow-y:auto;padding:8px 14px}
+#elog::-webkit-scrollbar{width:3px}
+#elog::-webkit-scrollbar-thumb{background:var(--border2)}
+.log-t{font-size:10px;color:var(--text3);letter-spacing:1px;text-transform:uppercase;margin-bottom:6px}
+.le{display:flex;gap:8px;align-items:flex-start;margin-bottom:7px}
+.ld{width:6px;height:6px;border-radius:50%;margin-top:4px;flex-shrink:0}
+.ltt{font-size:11px;color:var(--text);line-height:1.5}
+.lm{font-size:10px;color:var(--text3);font-family:var(--mono)}
+
+/* Footer */
+#footer{display:flex;align-items:center;justify-content:space-between;padding:0 16px;background:var(--bg1);border-top:1px solid var(--border);font-size:10px;color:var(--text3);font-family:var(--mono);z-index:1000}
+.leg{display:flex;gap:14px}.li{display:flex;align-items:center;gap:5px}
+.ld2{width:7px;height:7px;border-radius:50%}
+
+/* Alarm */
+#ao{position:fixed;inset:0;z-index:9999;background:rgba(40,0,0,.93);display:none;flex-direction:column;align-items:center;justify-content:center;gap:20px;animation:af 1s ease-in-out infinite}
+#ao.active{display:flex}
+.at{font-family:var(--title);font-size:44px;color:var(--red);letter-spacing:6px}
+.ae{font-size:20px;color:#ffaaaa;letter-spacing:2px;text-align:center}
+.ac{font-size:14px;color:#cc6666;font-family:var(--mono)}
+.ab{margin-top:16px;padding:12px 40px;background:transparent;border:2px solid var(--red);color:var(--red);font-family:var(--title);font-size:13px;letter-spacing:3px;cursor:pointer;border-radius:4px}
+.ab:hover{background:var(--red);color:#fff}
+
+/* Leaflet popup dark */
+.leaflet-popup-content-wrapper{background:var(--bg2)!important;border:1px solid var(--border2)!important;color:var(--text)!important;border-radius:6px!important;box-shadow:0 4px 20px rgba(0,0,0,.8)!important}
+.leaflet-popup-tip{background:var(--bg2)!important}
+.leaflet-popup-content{margin:10px 14px!important;font-family:var(--mono);font-size:11px}
+
+@keyframes af{0%,100%{background:rgba(40,0,0,.93)}50%{background:rgba(80,0,0,.93)}}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.2}}
+</style>
+</head>
+<body>
+
+<div id="ao">
+  <div class="at">⚠ CRITICAL ALERT</div>
+  <div class="ae" id="aet">—</div>
+  <div class="ac" id="act">—</div>
+  <button class="ab" onclick="dismissAlarm()">ACKNOWLEDGE &amp; DISMISS</button>
+</div>
+
+<div id="app">
+  <div id="hdr">
+    <div>
+      <div class="logo">GARUD</div>
+      <div class="sub">COGNITIVE SURVEILLANCE NETWORK — NATIONAL HQ COMMAND</div>
+    </div>
+    <div style="display:flex;align-items:center;gap:24px">
+      <div class="ap"><div class="ad" id="adot"></div><span id="ast">Connecting…</span></div>
+      <div style="text-align:right"><div id="clock">--:--:--</div><div id="date-str"></div></div>
+    </div>
+  </div>
+
+  <div id="stats">
+    <div class="stat"><div style="font-size:20px">🎥</div><div><div class="sn" id="st" style="color:var(--white)">—</div><div class="sl">CAMERAS<br>ONLINE</div></div></div>
+    <div class="stat"><div style="font-size:20px;color:var(--yellow)">⚠</div><div><div class="sn" id="sy" style="color:var(--yellow)">—</div><div class="sl">LOW<br>SEVERITY</div></div></div>
+    <div class="stat"><div style="font-size:20px;color:var(--amber)">⚡</div><div><div class="sn" id="sa" style="color:var(--amber)">—</div><div class="sl">MEDIUM<br>SEVERITY</div></div></div>
+    <div class="stat"><div style="font-size:20px;color:var(--red)">🔴</div><div><div class="sn" id="sr" style="color:var(--red)">—</div><div class="sl">CRITICAL<br>ALERTS</div></div></div>
+    <div class="stat"><div id="ticker">Loading…</div></div>
+  </div>
+
+  <div id="content">
+    <div id="map"></div>
+
+    <div id="side">
+      <div id="fhdr">
+        <div class="lb" id="lbdg">STANDBY</div>
+        <div id="fcn" style="color:var(--text2)">No camera selected</div>
+      </div>
+      <div id="fbox">
+        <img id="fimg" alt="live feed">
+        <div id="fph">
+          <div style="font-size:32px;opacity:.1">📹</div>
+          <div style="font-size:11px;color:var(--text3)">Click a camera node on the map</div>
+        </div>
+        <div id="fov">
+          <span><span class="rec">●</span> REC</span>
+          <span id="fts"></span>
+          <span id="ffps"></span>
+        </div>
+      </div>
+      <div id="cdet">
+        <div id="crows" style="color:var(--text3);font-size:11px;text-align:center;padding:8px 0">
+          Select a camera to view details
+        </div>
+      </div>
+      <div id="elog">
+        <div class="log-t">Event log</div>
+        <div id="lent"></div>
+      </div>
+    </div>
+  </div>
+
+  <div id="footer">
+    <div class="leg">
+      <div class="li"><div class="ld2" style="background:#cfe8f8"></div>Active — clear</div>
+      <div class="li"><div class="ld2" style="background:#ffd600"></div>Low</div>
+      <div class="li"><div class="ld2" style="background:#ff9100"></div>Medium</div>
+      <div class="li"><div class="ld2" style="background:#ff3d3d"></div>Critical</div>
+    </div>
+    <div>GARUD v4 · YOLOv8 · MPS · Leaflet · port 5001</div>
+  </div>
+</div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+const API = 'http://localhost:5001';
+const POLL = 2000;
+const COL = {white:'#cfe8f8',yellow:'#ffd600',amber:'#ff9100',red:'#ff3d3d',offline:'#2a4060'};
+const SEV = {white:'Clear',yellow:'Low',amber:'Medium',red:'Critical',offline:'Offline'};
+const BC  = {white:'sw',yellow:'sy',amber:'sa',red:'sr',offline:'sw'};
+
+let cams={}, elog=[], selId=null, online=false, adism=false;
+let markers = {};  // cam_id -> leaflet marker
+
+// ── Init Leaflet map ──────────────────────────────────────────────────────────
+const map = L.map('map', {
+  center: [20.5937, 78.9629],  // centre of India
+  zoom: 5,
+  zoomControl: true,
+  attributionControl: true,
+});
+
+// Dark-styled tile layer (CartoDB Dark Matter — no API key needed)
+L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+  attribution: '© OpenStreetMap © CARTO',
+  subdomains: 'abcd',
+  maxZoom: 19,
+}).addTo(map);
+
+// ── Custom marker icon ────────────────────────────────────────────────────────
+function makeDotIcon(severity) {
+  const col = COL[severity] || COL.white;
+  const pulse = (severity !== 'white' && severity !== 'offline');
+  const size = 14;
+  const html = `
+    <div class="cam-marker ${severity}">
+      ${pulse ? '<div class="cam-pulse"></div>' : ''}
+    </div>`;
+  return L.divIcon({
+    className: '',
+    html: html,
+    iconSize:   [size, size],
+    iconAnchor: [size/2, size/2],
+    popupAnchor:[0, -size/2],
+  });
+}
+
+// ── Add / update markers ──────────────────────────────────────────────────────
+function renderMarkers() {
+  Object.values(cams).forEach(cam => {
+    const col = COL[cam.severity] || COL.white;
+    const sevTxt = SEV[cam.severity] || '?';
+
+    if (markers[cam.id]) {
+      // Update existing marker
+      markers[cam.id].setIcon(makeDotIcon(cam.severity));
+    } else {
+      // Create new marker
+      const m = L.marker([cam.lat, cam.lng], {
+        icon: makeDotIcon(cam.severity),
+        title: cam.name,
+      });
+
+      m.bindPopup(`
+        <div style="font-family:'Share Tech Mono',monospace;min-width:160px">
+          <div style="color:#cfe8f8;font-size:12px;margin-bottom:4px"><strong>${cam.name}</strong></div>
+          <div style="color:#4a7090;font-size:10px;margin-bottom:6px">${cam.id} · ${cam.city}</div>
+          <div style="color:${col};font-size:11px">■ ${sevTxt}</div>
+          <div style="color:#2a5080;font-size:10px;margin-top:4px">Crowd: ${cam.crowd || 0} · Motion: ${cam.motion || 0}</div>
+          <div style="margin-top:8px">
+            <button onclick="selCam('${cam.id}')" style="background:#0c1628;color:#29b6f6;border:1px solid #1e3a60;padding:4px 10px;font-family:'Share Tech Mono',monospace;font-size:10px;cursor:pointer;border-radius:3px;width:100%">
+              OPEN LIVE FEED →
+            </button>
+          </div>
+        </div>
+      `, { maxWidth: 220 });
+
+      m.on('click', () => selCam(cam.id));
+      m.addTo(map);
+      markers[cam.id] = m;
+    }
+  });
+}
+
+// ── Select camera → open feed panel ──────────────────────────────────────────
+function selCam(id) {
+  selId = id;
+  const cam = cams[id]; if (!cam) return;
+  const col = COL[cam.severity] || COL.white;
+
+  // Close any open popup
+  map.closePopup();
+
+  // Badge
+  const b = document.getElementById('lbdg');
+  b.textContent = cam.severity === 'white' ? 'ONLINE' : 'ALERT';
+  b.style.color = col; b.style.borderColor = col; b.style.background = col + '1a';
+
+  document.getElementById('fcn').textContent = `${cam.id} — ${cam.city}`;
+  document.getElementById('fcn').style.color = '#cfe8f8';
+
+  // Stream
+  const img = document.getElementById('fimg');
+  img.src = `${API}/api/stream/${id}`;
+  img.style.display = 'block';
+  document.getElementById('fph').style.display = 'none';
+  document.getElementById('fov').style.display = 'flex';
+  document.getElementById('ffps').textContent = `${cam.fps || 0} fps`;
+
+  document.getElementById('crows').innerHTML = `
+    <div class="ir"><span class="ik">Camera ID</span><span class="iv">${cam.id}</span></div>
+    <div class="ir"><span class="ik">Location</span><span class="iv">${cam.name}</span></div>
+    <div class="ir"><span class="ik">Status</span><span class="sb ${BC[cam.severity]}">${SEV[cam.severity]}</span></div>
+    <div class="ir"><span class="ik">Crowd count</span><span class="iv">${cam.crowd > 0 ? cam.crowd + ' persons' : 'N/A'}</span></div>
+    <div class="ir"><span class="ik">Motion score</span><span class="iv">${cam.motion}</span></div>
+    <div class="ir"><span class="ik">Last event</span><span class="iv">${cam.event}</span></div>
+    <div class="ir"><span class="ik">Coordinates</span><span class="iv">${cam.lat}°N ${cam.lng}°E</span></div>
+    <div class="ir"><span class="ik">Updated</span><span class="iv">${new Date(cam.updated).toLocaleTimeString('en-IN',{hour12:false})}</span></div>`;
+}
+
+// ── Stats ─────────────────────────────────────────────────────────────────────
+function updStats() {
+  const all = Object.values(cams);
+  document.getElementById('st').textContent = all.length;
+  document.getElementById('sy').textContent = all.filter(c => c.severity === 'yellow').length;
+  document.getElementById('sa').textContent = all.filter(c => c.severity === 'amber').length;
+  document.getElementById('sr').textContent = all.filter(c => c.severity === 'red').length;
+  const al = all.filter(c => c.severity === 'red' || c.severity === 'amber');
+  document.getElementById('ticker').textContent = al.length
+    ? al.map(c => `⚠ ${c.city}: ${c.event}`).join('   ·   ')
+    : '✓ All systems nominal';
+  if (selId && cams[selId])
+    document.getElementById('ffps').textContent = `${cams[selId].fps || 0} fps`;
+}
+
+// ── Event log ─────────────────────────────────────────────────────────────────
+function rendLog() {
+  const el = document.getElementById('lent');
+  if (!elog.length) { el.innerHTML = '<div style="font-size:11px;color:var(--text3)">No events yet</div>'; return; }
+  el.innerHTML = elog.slice(0, 30).map(e => `
+    <div class="le">
+      <div class="ld" style="background:${COL[e.severity]}"></div>
+      <div>
+        <div class="ltt">${e.event} — <span style="color:#6a8aaa">${e.city}</span></div>
+        <div class="lm">${e.cam_id} · ${e.time}</div>
+      </div>
+    </div>`).join('');
+}
+
+// ── Clock ─────────────────────────────────────────────────────────────────────
+function tick() {
+  const n = new Date();
+  document.getElementById('clock').textContent    = n.toLocaleTimeString('en-IN', {hour12:false});
+  document.getElementById('date-str').textContent = n.toLocaleDateString('en-IN', {weekday:'short',day:'numeric',month:'short',year:'numeric'}).toUpperCase();
+  if (selId) document.getElementById('fts').textContent = n.toLocaleTimeString('en-IN', {hour12:false});
+}
+setInterval(tick, 1000); tick();
+
+// ── Alarm ─────────────────────────────────────────────────────────────────────
+let actx=null, aint=null;
+function beep() {
+  try {
+    if (!actx) actx = new(window.AudioContext || window.webkitAudioContext)();
+    [880, 660].forEach((f, i) => {
+      const o=actx.createOscillator(), g=actx.createGain();
+      o.connect(g); g.connect(actx.destination); o.type='sawtooth'; o.frequency.value=f;
+      g.gain.setValueAtTime(.4, actx.currentTime+i*.25);
+      g.gain.exponentialRampToValueAtTime(.001, actx.currentTime+i*.25+.24);
+      o.start(actx.currentTime+i*.25); o.stop(actx.currentTime+i*.25+.25);
+    });
+  } catch(e){}
+}
+function startAlarm(){ if(aint) return; beep(); aint=setInterval(beep,1200); }
+function stopAlarm() { if(aint){ clearInterval(aint); aint=null; } }
+function dismissAlarm(){
+  stopAlarm(); adism=true;
+  document.getElementById('ao').classList.remove('active');
+  fetch(`${API}/api/alarm/dismiss`, {method:'POST'}).catch(()=>{});
+}
+
+// ── API polling ───────────────────────────────────────────────────────────────
+async function fetchCams() {
+  try {
+    const r = await fetch(`${API}/api/cameras`); if (!r.ok) throw new Error();
+    const d = await r.json(); d.forEach(c => cams[c.id] = c);
+    if (!online) {
+      online = true;
+      document.getElementById('adot').classList.add('on');
+      document.getElementById('ast').textContent = 'API online';
+    }
+    renderMarkers(); updStats();
+  } catch {
+    if (online) {
+      online = false;
+      document.getElementById('adot').classList.remove('on');
+      document.getElementById('ast').textContent = 'API offline — retrying…';
+    }
+  }
+}
+
+async function fetchElog() {
+  try {
+    const r = await fetch(`${API}/api/events?limit=30`);
+    if (r.ok) { elog = await r.json(); rendLog(); }
+  } catch {}
+}
+
+async function fetchAlarm() {
+  try {
+    const r = await fetch(`${API}/api/alarm`); if (!r.ok) return;
+    const a = await r.json();
+    const ov = document.getElementById('ao');
+    if (a.active && !adism) {
+      document.getElementById('aet').textContent = a.reason;
+      document.getElementById('act').textContent = `Camera ${a.cam_id} · ${cams[a.cam_id]?.city||''} · ${(a.since||'').slice(11,19)}`;
+      ov.classList.add('active'); startAlarm();
+    } else if (!a.active) {
+      adism = false; ov.classList.remove('active'); stopAlarm();
+    }
+  } catch {}
+}
+
+fetchCams(); fetchElog(); fetchAlarm();
+setInterval(fetchCams,  POLL);
+setInterval(fetchElog,  POLL * 2);
+setInterval(fetchAlarm, POLL);
+</script>
+</body>
+</html>
