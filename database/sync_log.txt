@@ -1,0 +1,4 @@
+[2026-07-14 20:32:45] Database initialised.
+[2026-07-14 20:32:45] Loading mock identity records…
+[2026-07-14 20:32:45] Mock data loaded — 10 added, 0 updated.
+[2026-07-14 20:32:45] Database initialised.
